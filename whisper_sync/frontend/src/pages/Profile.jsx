@@ -1,4 +1,5 @@
 import React, { useState, useRef, useContext, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AuthContext }   from '../App'
 import { authService }   from '../api/authService'
@@ -128,6 +129,7 @@ function FaceScanCamera({ onCapture, onCancel }) {
 // ─── Main Profile Page ────────────────────────────────────────────────────────
 export default function Profile() {
   const { user, setUser }            = useContext(AuthContext)
+  const navigate                     = useNavigate()
   const fileInputRef                 = useRef(null)
   const [showCamera, setShowCamera]  = useState(false)
   const [saving, setSaving]          = useState(false)
@@ -391,6 +393,33 @@ export default function Profile() {
             </div>
           </>
         )}
+      </div>
+
+      {/* ── Sign Out — visible on all devices ── */}
+      <div style={{ padding:'0 40px 40px', maxWidth:640 }}>
+        <div style={{ ...card, borderColor:'var(--danger)', background:'rgba(255,68,85,0.04)' }}>
+          <div style={{ ...mono, fontSize:10, letterSpacing:3, color:'var(--danger)', marginBottom:12 }}>DANGER ZONE</div>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:'var(--text-1)', marginBottom:3 }}>Sign Out</div>
+              <div style={{ fontSize:12, color:'var(--text-3)', ...mono }}>Ends your current session on this device</div>
+            </div>
+            <button
+              onClick={() => { authService.logout(); setUser(null); navigate('/login') }}
+              style={{
+                padding:'9px 22px', border:'1px solid var(--danger)',
+                background:'transparent', color:'var(--danger)',
+                borderRadius:6, cursor:'pointer', ...mono,
+                fontSize:11, fontWeight:700, letterSpacing:2,
+                transition:'all 0.15s', minHeight:44, whiteSpace:'nowrap',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background='rgba(255,68,85,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.background='transparent' }}
+            >
+              🚪 SIGN OUT
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Scan line CSS */}
