@@ -163,4 +163,12 @@ public class AuthController {
             user.getAvatarBase64(), user.getAvatarMode(), user.getBio()
         );
     }
+
+    // ─── Health Check (for Railway deployment) ────────────────────────────────
+
+    @GetMapping("/health")
+    @Operation(summary = "Health check endpoint")
+    public ResponseEntity<ApiResponse<String>> health() {
+        return ResponseEntity.ok(ApiResponse.ok("WhisperVault is running"));
+    }
 }

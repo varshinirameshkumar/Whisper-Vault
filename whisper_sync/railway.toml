@@ -1,0 +1,10 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "whisper_sync/backend/Dockerfile"
+
+[deploy]
+startCommand = "java -jar app.jar"
+healthcheckPath = "/api/auth/health"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
