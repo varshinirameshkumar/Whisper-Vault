@@ -61,9 +61,3 @@ whisper-vault/
 | **Vaijayanthi** | Infrastructure | **WebSocket STOMP Broker**, Audio Streaming, and System Health. |
 
 ---
-
-### 🔍 Quality & Deployment
-* **SonarQube Report:** [View Project Quality Check](https://sonarcloud.io/project/overview?id=varshinirameshkumar_Secret_Sharer)
-* **Production Link:** [https://secret-sharer-9phw.vercel.app](https://secret-sharer-9phw.vercel.app)
-
----
