@@ -1,0 +1,43 @@
+# WhisperVault + Whisper-Sync Group Vaults
+# MongoDB Atlas is used as cloud DB — no local Mongo container needed
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: whispervault-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  backend:
+    build: ./backend
+    container_name: whispervault-backend
+    ports:
+      - "8080:8080"
+    environment:
+      MONGODB_URI:      ${MONGODB_URI}
+      JWT_SECRET:       ${JWT_SECRET}
+      AES_SECRET_KEY:   ${AES_SECRET_KEY}
+      EMAIL_HOST:       ${EMAIL_HOST:-smtp.gmail.com}
+      EMAIL_PORT:       ${EMAIL_PORT:-587}
+      EMAIL_USERNAME:   ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD:   ${EMAIL_PASSWORD:-}
+      FRONTEND_URL:     ${FRONTEND_URL:-http://localhost:5173}
+      REDIS_HOST:       redis
+      REDIS_PORT:       6379
+      REDIS_PASSWORD:   ${REDIS_PASSWORD:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redis_data:
