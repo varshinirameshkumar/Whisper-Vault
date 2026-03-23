@@ -20,6 +20,7 @@ public class GroupRoom {
     private String id = UUID.randomUUID().toString();
 
     private String creatorUsername;
+    private String groupName;  // Optional display name for the room
 
     /** Private: invited. Public: initially empty — anyone can spectate. */
     private List<String> invitedUsernames  = new ArrayList<>();

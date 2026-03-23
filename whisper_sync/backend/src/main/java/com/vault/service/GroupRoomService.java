@@ -30,7 +30,7 @@ public class GroupRoomService {
 
     // ─── Create private room ──────────────────────────────────────────────────
 
-    public GroupRoom createRoom(String creatorUsername, List<String> invitedUsernames) {
+    public GroupRoom createRoom(String creatorUsername, List<String> invitedUsernames, String groupName) {
         List<String> all = new ArrayList<>();
         all.add(creatorUsername);
         all.addAll(invitedUsernames);
@@ -38,6 +38,7 @@ public class GroupRoomService {
 
         GroupRoom room = new GroupRoom();
         room.setCreatorUsername(creatorUsername);
+        room.setGroupName(groupName != null && !groupName.isBlank() ? groupName.trim() : null);
         room.setInvitedUsernames(all);
         room.setAcceptedUsernames(new ArrayList<>(List.of(creatorUsername)));
         room.setStatus(GroupRoom.RoomStatus.PENDING);
@@ -61,16 +62,45 @@ public class GroupRoomService {
 
     // ─── Create public room ───────────────────────────────────────────────────
 
-    public GroupRoom createPublicRoom(String creatorUsername) {
+    public GroupRoom createPublicRoom(String creatorUsername, String groupName) {
         GroupRoom room = new GroupRoom();
         room.setCreatorUsername(creatorUsername);
+        room.setGroupName(groupName != null && !groupName.isBlank() ? groupName.trim() : null);
         room.setInvitedUsernames(new ArrayList<>(List.of(creatorUsername)));
         room.setAcceptedUsernames(new ArrayList<>(List.of(creatorUsername)));
         room.setStatus(GroupRoom.RoomStatus.ACTIVE);
         room.setMode(GroupRoom.RoomMode.PUBLIC);
         groupRoomRepository.save(room);
-        log.info("Public room {} created by {}", room.getId(), creatorUsername);
+        log.info("Public room {} '{}' created by {}", room.getId(), room.getGroupName(), creatorUsername);
         return room;
+    }
+
+    /**
+     * Creator adds a new participant to an existing ACTIVE room.
+     * Generates an invite token and sends an email.
+     */
+    public Optional<GroupRoom> addParticipant(String roomId, String newUsername, String requesterUsername) {
+        return groupRoomRepository.findById(roomId).map(room -> {
+            if (room.getStatus() == GroupRoom.RoomStatus.BURNED) return null;
+            if (!room.getCreatorUsername().equals(requesterUsername)) return null;
+            if (room.getInvitedUsernames().contains(newUsername)) return room; // already invited
+
+            String token = generateToken();
+            room.getInvitedUsernames().add(newUsername);
+            room.getInviteTokens().put(newUsername, token);
+            GroupRoom saved = groupRoomRepository.save(room);
+
+            userRepository.findByUsername(newUsername).ifPresent(user -> {
+                if (user.isEmailNotificationsEnabled()) {
+                    emailService.sendGroupRoomInvite(
+                        user.getEmail(), user.getUsername(),
+                        requesterUsername, roomId, token
+                    );
+                }
+            });
+            log.info("Participant {} added to room {} by {}", newUsername, roomId, requesterUsername);
+            return saved;
+        });
     }
 
     // ─── Join (private) ───────────────────────────────────────────────────────

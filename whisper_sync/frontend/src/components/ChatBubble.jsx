@@ -17,7 +17,7 @@ const fmtDur = (s) =>
 
 const getType = (t) => (t || 'TEXT').toString().toUpperCase()
 
-// ─── Fetch + decrypt helper ───────────────────────────────────────────────────
+// ─── Fetch + decrypt helper ────────────────────────────────────────────────────
 // Works for both token-based (REST) and legacy payload-based messages
 async function fetchAndDecrypt(message, decryptFile) {
   if (message.fileToken) {
@@ -175,6 +175,87 @@ function FileCard({ message, isOwn, roomId }) {
   )
 }
 
+// ─── Photo Card ────────────────────────────────────────────────────────────────
+function PhotoCard({ message, isOwn, roomId }) {
+  const { decryptFile }         = useCrypto(roomId)
+  const [blobUrl, setBlobUrl]   = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchAndDecrypt(message, decryptFile)
+      .then(blob => { if (!cancelled && blob) setBlobUrl(URL.createObjectURL(blob)); else if (!cancelled) setError(true) })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [message.fileToken, message.encryptedPayload]) // eslint-disable-line
+
+  if (error) return <div style={{ fontSize:12, fontFamily:'var(--mono)', opacity:0.5 }}>📷 [photo unavailable]</div>
+
+  return (
+    <>
+      <div style={{ position:'relative', maxWidth:240, cursor:'pointer' }} onClick={() => blobUrl && setFullscreen(true)}>
+        {loading ? (
+          <div style={{ width:200, height:150, background:'var(--bg-3)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <div className="vault-spinner" style={{ width:24, height:24 }} />
+          </div>
+        ) : (
+          <img src={blobUrl} alt="photo" style={{ width:'100%', maxWidth:240, borderRadius:8, display:'block', cursor:'zoom-in' }} />
+        )}
+        <div style={{ position:'absolute', bottom:6, right:8, fontSize:10, fontFamily:'var(--mono)', color:'rgba(255,255,255,0.7)', background:'rgba(0,0,0,0.4)', padding:'2px 6px', borderRadius:4 }}>📷 ENCRYPTED</div>
+      </div>
+      {/* Fullscreen lightbox */}
+      {fullscreen && blobUrl && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.95)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, cursor:'zoom-out' }}
+          onClick={() => setFullscreen(false)}>
+          <img src={blobUrl} alt="photo" style={{ maxWidth:'90vw', maxHeight:'90vh', objectFit:'contain', borderRadius:8 }} />
+          <div style={{ position:'absolute', top:16, right:16, fontFamily:'var(--mono)', fontSize:11, color:'var(--text-3)', letterSpacing:1 }}>TAP TO CLOSE</div>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─── Video Card ────────────────────────────────────────────────────────────────
+function VideoCard({ message, isOwn, roomId }) {
+  const { decryptFile }         = useCrypto(roomId)
+  const [blobUrl, setBlobUrl]   = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchAndDecrypt(message, decryptFile)
+      .then(blob => { if (!cancelled && blob) setBlobUrl(URL.createObjectURL(blob)); else if (!cancelled) setError(true) })
+      .catch(() => { if (!cancelled) setError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [message.fileToken, message.encryptedPayload]) // eslint-disable-line
+
+  if (error) return <div style={{ fontSize:12, fontFamily:'var(--mono)', opacity:0.5 }}>🎬 [video unavailable]</div>
+
+  return (
+    <div style={{ maxWidth:280 }}>
+      {loading ? (
+        <div style={{ width:240, height:160, background:'var(--bg-3)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div className="vault-spinner" style={{ width:24, height:24 }} />
+        </div>
+      ) : (
+        <>
+          <video src={blobUrl} controls style={{ width:'100%', maxWidth:280, borderRadius:8, display:'block' }} />
+          <div style={{ display:'flex', justifyContent:'flex-end', marginTop:4 }}>
+            <a href={blobUrl} download="video.webm" style={{ fontSize:11, fontFamily:'var(--mono)', color: isOwn ? 'rgba(0,0,0,0.6)' : 'var(--text-3)', textDecoration:'none', letterSpacing:1 }}>
+              ↓ DOWNLOAD
+            </a>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Main ChatBubble ───────────────────────────────────────────────────────────
 export default function ChatBubble({ message, isOwn, roomId }) {
   const { decrypt }             = useCrypto(roomId)
@@ -200,7 +281,9 @@ export default function ChatBubble({ message, isOwn, roomId }) {
 
   const isVoice = type === 'VOICE'
   const isFile  = type === 'FILE'
-  const isText  = !isVoice && !isFile
+  const isPhoto = type === 'PHOTO'
+  const isVideo = type === 'VIDEO'
+  const isText  = !isVoice && !isFile && !isPhoto && !isVideo
 
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems: isOwn ? 'flex-end' : 'flex-start', marginBottom:12 }}>
@@ -220,6 +303,8 @@ export default function ChatBubble({ message, isOwn, roomId }) {
       }}>
         {isVoice && <VoicePlayer message={message} isOwn={isOwn} roomId={roomId} />}
         {isFile  && <FileCard   message={message} isOwn={isOwn} roomId={roomId} />}
+        {isPhoto && <PhotoCard  message={message} isOwn={isOwn} roomId={roomId} />}
+        {isVideo && <VideoCard  message={message} isOwn={isOwn} roomId={roomId} />}
         {isText  && (
           <div style={{ fontSize:14, lineHeight:1.55 }}>
             {plaintext === null

@@ -20,7 +20,9 @@ public class ChatMessage {
     public enum MessageType {
         TEXT,    // AES-256-GCM encrypted text
         FILE,    // AES-256-GCM encrypted file (Base64)
-        VOICE,   // AES-256-GCM encrypted audio (Base64) ← was missing!
+        VOICE,   // AES-256-GCM encrypted audio (Base64)
+        PHOTO,   // AES-256-GCM encrypted photo from camera
+        VIDEO,   // AES-256-GCM encrypted video from camera
         JOIN,    // system: user joined
         LEAVE,   // system: user left
         SYSTEM   // system: room event

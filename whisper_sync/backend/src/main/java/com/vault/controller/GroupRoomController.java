@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.HashMap;
 import java.util.List;
@@ -45,28 +46,51 @@ public class GroupRoomController {
             @RequestBody Map<String, Object> body, Authentication auth, HttpServletRequest req) {
         @SuppressWarnings("unchecked")
         List<String> invitees = (List<String>) body.get("invitedUsernames");
+        String groupName = (String) body.get("groupName");
         if (invitees == null || invitees.isEmpty())
             return ResponseEntity.badRequest().body(ApiResponse.error("At least one invitee is required"));
 
-        GroupRoom room = groupRoomService.createRoom(auth.getName(), invitees);
+        GroupRoom room = groupRoomService.createRoom(auth.getName(), invitees, groupName);
         try { activityService.log(auth.getName(), String.join(",", invitees), room.getId(), ActivityLog.ActivityType.ROOM_CREATED, req.getRemoteAddr()); } catch (Exception ignored) {}
 
         Map<String, Object> payload = new HashMap<>();
-        payload.put("roomId", room.getId()); payload.put("status", room.getStatus().name()); payload.put("invitees", room.getInvitedUsernames());
+        payload.put("roomId", room.getId());
+        payload.put("status", room.getStatus().name());
+        payload.put("groupName", room.getGroupName());
+        payload.put("invitees", room.getInvitedUsernames());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Room created. Invites dispatched.", payload));
     }
 
-    // ─── Create public room ───────────────────────────────────────────────────
     @PostMapping("/public")
     @SecurityRequirement(name = "bearerAuth")
     @Operation(summary = "Create a public spectator vault room")
     public ResponseEntity<ApiResponse<Map<String, Object>>> createPublicRoom(
+            @RequestBody(required = false) Map<String, Object> body,
             Authentication auth, HttpServletRequest req) {
-        GroupRoom room = groupRoomService.createPublicRoom(auth.getName());
+        String groupName = body != null ? (String) body.get("groupName") : null;
+        GroupRoom room = groupRoomService.createPublicRoom(auth.getName(), groupName);
         try { activityService.log(auth.getName(), "PUBLIC", room.getId(), ActivityLog.ActivityType.ROOM_CREATED, req.getRemoteAddr()); } catch (Exception ignored) {}
         Map<String, Object> p = new HashMap<>();
-        p.put("roomId", room.getId()); p.put("mode", "PUBLIC"); p.put("status", "ACTIVE");
+        p.put("roomId", room.getId()); p.put("mode", "PUBLIC"); p.put("status", "ACTIVE"); p.put("groupName", room.getGroupName());
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Public room created", p));
+    }
+
+    // ─── Add participant to existing room ─────────────────────────────────────
+    @PostMapping("/{roomId}/add-participant")
+    @SecurityRequirement(name = "bearerAuth")
+    @Operation(summary = "Creator adds a new participant to an active room")
+    public ResponseEntity<ApiResponse<String>> addParticipant(
+            @PathVariable String roomId,
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
+        String username = body.get("username");
+        if (username == null || username.isBlank())
+            return ResponseEntity.badRequest().body(ApiResponse.error("Username is required"));
+
+        return groupRoomService.addParticipant(roomId, username, auth.getName())
+            .map(room -> ResponseEntity.ok(ApiResponse.ok("Invite sent to " + username)))
+            .orElse(ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error("Only the creator can add participants, or room not found")));
     }
 
     // ─── List public active rooms ─────────────────────────────────────────────
